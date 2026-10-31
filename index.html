@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>محرك بحث الصور</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+            background: #0f0f1a;
+            color: #e0e0e0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2rem 1rem;
+        }
+        .container { max-width: 900px; width: 100%; }
+        h1 {
+            text-align: center;
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .subtitle {
+            text-align: center;
+            color: #888;
+            margin-bottom: 2rem;
+            font-size: 0.9rem;
+        }
+        .search-box {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+        .search-box input {
+            flex: 1;
+            padding: 0.85rem 1.2rem;
+            border: 2px solid #2a2a3e;
+            border-radius: 12px;
+            background: #1a1a2e;
+            color: #fff;
+            font-size: 1rem;
+            outline: none;
+            transition: border 0.3s;
+            min-width: 200px;
+        }
+        .search-box input:focus { border-color: #667eea; }
+        .search-box button {
+            padding: 0.85rem 1.5rem;
+            border: none;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: #fff;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: transform 0.2s, opacity 0.2s;
+            font-weight: 600;
+        }
+        .search-box button:hover { transform: scale(1.03); opacity: 0.9; }
+        .search-box button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        
+        .filters {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+        .filters button {
+            padding: 0.5rem 1rem;
+            border: 2px solid #2a2a3e;
+            border-radius: 8px;
+            background: #1a1a2e;
+            color: #aaa;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+        .filters button.active {
+            border-color: #667eea;
+            color: #fff;
+            background: #2a2a4e;
+        }
+        .filters button:hover { border-color: #667eea; }
+
+        .results {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        .result-card {
+            background: #1a1a2e;
+            border-radius: 12px;
+            overflow: hidden;
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+            border: 1px solid #2a2a3e;
+        }
+        .result-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.2);
+        }
+        .result-card img {
+            width: 100%;
+            height: 180px;
+            object-fit: cover;
+            display: block;
+        }
+        .result-card .info {
+            padding: 0.7rem;
+        }
+        .result-card .info .title {
+            font-size: 0.85rem;
+            color: #ccc;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .result-card .info .source {
+            font-size: 0.75rem;
+            color: #667eea;
+            margin-top: 0.3rem;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 3rem;
+            color: #888;
+        }
+        .loading .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #2a2a3e;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 1rem;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .error {
+            text-align: center;
+            padding: 2rem;
+            color: #ff6b6b;
+            background: #2a1a1a;
+            border-radius: 12px;
+            border: 1px solid #ff6b6b33;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.85);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            padding: 1rem;
+        }
+        .modal.open { display: flex; }
+        .modal img {
+            max-width: 90vw;
+            max-height: 85vh;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        }
+        .modal .close {
+            position: absolute;
+            top: 1rem; right: 1.5rem;
+            font-size: 2rem;
+            color: #fff;
+            cursor: pointer;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+        .modal .close:hover { opacity: 1; }
+
+        .footer {
+            text-align: center;
+            margin-top: 2rem;
+            color: #555;
+            font-size: 0.8rem;
+        }
+
+        @media (max-width: 500px) {
+            .results { grid-template-columns: repeat(2, 1fr); gap: 0.7rem; }
+            .result-card img { height: 130px; }
+            h1 { font-size: 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 ImageSearch</h1>
+        <p class="subtitle">ابحث عن الصور من مصادر متعددة</p>
+
+        <div class="search-box">
+            <input type="text" id="query" placeholder="اكتب شيئاً للبحث..." dir="rtl">
+            <button id="searchBtn">🔍 بحث</button>
+        </div>
+
+        <div class="filters">
+            <button data-source="all" class="active">الكل</button>
+            <button data-source="unsplash">Unsplash</button>
+            <button data-source="pixabay">Pixabay</button>
+            <button data-source="pexels">Pexels</button>
+            <button data-source="wikipedia">ويكيبيديا</button>
+        </div>
+
+        <div id="results"></div>
+        <div class="footer">Powered by ImageSearch — Mira</div>
+    </div>
+
+    <div class="modal" id="modal">
+        <span class="close" id="modalClose">&times;</span>
+        <img id="modalImg" src="" alt="">
+    </div>
+
+    <script>
+        const queryInput = document.getElementById('query');
+        const searchBtn = document.getElementById('searchBtn');
+        const resultsDiv = document.getElementById('results');
+        const modal = document.getElementById('modal');
+        const modalImg = document.getElementById('modalImg');
+        const modalClose = document.getElementById('modalClose');
+        let activeSource = 'all';
+
+        document.querySelectorAll('.filters button').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.filters button').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                activeSource = btn.dataset.source;
+            });
+        });
+
+        modalClose.addEventListener('click', () => modal.classList.remove('open'));
+        modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('open'); });
+
+        searchBtn.addEventListener('click', search);
+        queryInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') search(); });
+
+        async function search() {
+            const q = queryInput.value.trim();
+            if (!q) return;
+
+            resultsDiv.innerHTML = '<div class="loading"><div class="spinner"></div>جاري البحث...</div>';
+            searchBtn.disabled = true;
+
+            try {
+                const promises = [];
+                
+                if (activeSource === 'all' || activeSource === 'unsplash') {
+                    promises.push(
+                        fetch(`https://api.allorigins.win/get?url=${encodeURIComponent('https://api.unsplash.com/search/photos?query=' + encodeURIComponent(q) + '&per_page=10&client_id=YOUR_UNSPLASH_KEY')}`)
+                        .then(r => r.json())
+                        .then(d => {
+                            try {
+                                const data = JSON.parse(d.contents);
+                                return (data.results || []).map(img => ({
+                                    url: img.urls?.regular || img.urls?.small,
+                                    title: img.alt_description || 'Unsplash',
+                                    source: 'Unsplash',
+                                    page: img.links?.html
+                                }));
+                            } catch(e) { return []; }
+                        })
+                        .catch(() => [])
+                    );
+                }
+
+                if (activeSource === 'all' || activeSource === 'pixabay') {
+                    promises.push(
+                        fetch(`https://api.allorigins.win/get?url=${encodeURIComponent('https://pixabay.com/api/?key=48810866-1b6e8c4f6e6e6e6e6e6e6e6e6&q=' + encodeURIComponent(q) + '&image_type=photo&per_page=10')}`)
+                        .then(r => r.json())
+                        .then(d => {
+                            try {
+                                const data = JSON.parse(d.contents);
+                                return (data.hits || []).map(img => ({
+                                    url: img.webformatURL,
+                                    title: img.tags || 'Pixabay',
+                                    source: 'Pixabay',
+                                    page: img.pageURL
+                                }));
+                            } catch(e) { return []; }
+                        })
+                        .catch(() => [])
+                    );
+                }
+
+                if (activeSource === 'all' || activeSource === 'pexels') {
+                    promises.push(
+                        fetch(`https://api.allorigins.win/get?url=${encodeURIComponent('https://api.pexels.com/v1/search?query=' + encodeURIComponent(q) + '&per_page=10')}`, {
+                            headers: { 'Authorization': '563492ad6f91700001000001e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6' }
+                        })
+                        .then(r => r.json())
+                        .then(d => {
+                            try {
+                                const data = JSON.parse(d.contents);
+                                return (data.photos || []).map(img => ({
+                                    url: img.src?.medium || img.src?.small,
+                                    title: img.photographer || 'Pexels',
+                                    source: 'Pexels',
+                                    page: img.url
+                                }));
+                            } catch(e) { return []; }
+                        })
+                        .catch(() => [])
+                    );
+                }
+
+                if (activeSource === 'all' || activeSource === 'wikipedia') {
+                    promises.push(
+                        fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(q)}`)
+                        .then(r => r.json())
+                        .then(data => {
+                            if (data.thumbnail?.source) {
+                                return [{
+                                    url: data.thumbnail.source,
+                                    title: data.title || q,
+                                    source: 'Wikipedia',
+                                    page: data.content_urls?.desktop?.page || `https://en.wikipedia.org/wiki/${encodeURIComponent(q)}`
+                                }];
+                            }
+                            return fetch(`https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(q)}&format=json&origin=*`)
+                            .then(r => r.json())
+                            .then(sr => {
+                                const pages = sr.query?.search?.slice(0,3) || [];
+                                return Promise.all(pages.map(p => 
+                                    fetch(`https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(p.title)}&prop=pageimages&format=json&pithumbsize=400&origin=*`)
+                                    .then(r => r.json())
+                                    .then(pi => {
+                                        const pages2 = pi.query?.pages || {};
+                                        const page = Object.values(pages2)[0];
+                                        if (page?.thumbnail?.source) {
+                                            return {
+                                                url: page.thumbnail.source,
+                                                title: page.title,
+                                                source: 'Wikipedia',
+                                                page: `https://en.wikipedia.org/wiki/${encodeURIComponent(page.title)}`
+                                            };
+                                        }
+                                        return null;
+                                    })
+                                ));
+                            })
+                            .then(items => items.filter(Boolean))
+                        })
+                        .catch(() => [])
+                    );
+                }
+
+                const allResults = await Promise.all(promises);
+                const flat = allResults.flat().filter(r => r && r.url);
+
+                if (flat.length === 0) {
+                    resultsDiv.innerHTML = '<div class="error">⚠️ ما لقينا نتائج. جرب كلمة بحث ثانية.</div>';
+                    return;
+                }
+
+                flat.sort(() => Math.random() - 0.5);
+                const display = flat.slice(0, 30);
+
+                resultsDiv.innerHTML = '';
+                display.forEach(item => {
+                    const card = document.createElement('div');
+                    card.className = 'result-card';
+                    card.innerHTML = `
+                        <img src="${item.url}" alt="${item.title}" loading="lazy" onerror="this.parentElement.style.display='none'">
+                        <div class="info">
+                            <div class="title">${item.title}</div>
+                            <div class="source">${item.source}</div>
+                        </div>
+                    `;
+                    card.addEventListener('click', () => {
+                        modalImg.src = item.url;
+                        modal.classList.add('open');
+                    });
+                    resultsDiv.appendChild(card);
+                });
+
+            } catch (err) {
+                resultsDiv.innerHTML = '<div class="error">⚠️ صار خطأ بالبحث. حاول مرة ثانية.</div>';
+            } finally {
+                searchBtn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>
